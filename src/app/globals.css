@@ -765,6 +765,15 @@ tbody td {
   100% { background-position: -200% 0; }
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes progressSlide {
+  0%   { left: -50%; }
+  100% { left: 110%; }
+}
+
 /* Login page */
 .login-page {
   min-height: 100vh;

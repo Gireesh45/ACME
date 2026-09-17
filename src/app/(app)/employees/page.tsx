@@ -34,7 +34,10 @@ export default function EmployeesPage() {
   const router = useRouter();
 
   const [data, setData] = useState<PaginatedResponse<EmployeeWithLatestSalary> | null>(null);
+  // `loading` = true only on the very first fetch (shows skeleton rows)
+  // `fetching` = true on subsequent filter/sort/page changes (keeps rows, dims table)
   const [loading, setLoading] = useState(true);
+  const [fetching, setFetching] = useState(false);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -48,7 +51,12 @@ export default function EmployeesPage() {
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
 
   const fetchEmployees = useCallback(async () => {
-    setLoading(true);
+    // First load: show skeleton. Subsequent: just dim the existing rows.
+    if (data === null) {
+      setLoading(true);
+    } else {
+      setFetching(true);
+    }
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -68,6 +76,7 @@ export default function EmployeesPage() {
       console.error(err);
     } finally {
       setLoading(false);
+      setFetching(false);
     }
   }, [page, pageSize, search, department, country, status, gender, sortBy, sortOrder]);
 
@@ -106,14 +115,25 @@ export default function EmployeesPage() {
 
   const totalPages = data?.totalPages ?? 1;
   const employees = data?.data ?? [];
+  const isBusy = loading || fetching;
 
   return (
     <>
       <div className="page-header">
         <div>
           <h1 className="page-title">Employees</h1>
-          <p className="page-subtitle">
+          <p className="page-subtitle" style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {data ? `${data.total.toLocaleString()} employees` : "Loading…"}
+            {fetching && (
+              <span style={{
+                width: 14, height: 14,
+                border: "2px solid var(--border-light)",
+                borderTopColor: "var(--accent)",
+                borderRadius: "50%",
+                display: "inline-block",
+                animation: "spin 0.7s linear infinite",
+              }} />
+            )}
           </p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
@@ -218,7 +238,27 @@ export default function EmployeesPage() {
           </div>
 
           {/* Table */}
-          <div className="table-container" id="employees-table">
+          {/* Progress bar — only shown during filter/sort/page refetch, not initial load */}
+          <div style={{
+            height: 2,
+            background: "var(--border)",
+            position: "relative",
+            overflow: "hidden",
+            opacity: fetching ? 1 : 0,
+            transition: "opacity 0.2s ease",
+          }}>
+            <div style={{
+              position: "absolute",
+              top: 0, left: 0, height: "100%",
+              width: "40%",
+              background: "linear-gradient(90deg, var(--accent), var(--purple))",
+              animation: fetching ? "progressSlide 1s ease-in-out infinite" : "none",
+              borderRadius: 2,
+            }} />
+          </div>
+          <div className="table-container" id="employees-table"
+            style={{ opacity: fetching ? 0.55 : 1, transition: "opacity 0.18s ease", pointerEvents: fetching ? "none" : "auto" }}
+          >
             <table>
               <thead>
                 <tr>
@@ -284,7 +324,7 @@ export default function EmployeesPage() {
                         ))}
                       </tr>
                     ))
-                  : employees.length === 0
+                  : employees.length === 0 && !fetching
                   ? (
                     <tr>
                       <td colSpan={7}>
