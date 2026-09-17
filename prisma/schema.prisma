@@ -1,0 +1,44 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// NOTE: In Prisma 7, the datasource url is now configured in prisma.config.ts
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Employee {
+  id            String         @id @default(cuid())
+  employeeId    String         @unique
+  firstName     String
+  lastName      String
+  email         String         @unique
+  gender        String         // Male | Female | Other
+  department    String
+  position      String
+  country       String
+  currency      String         // ISO 4217 e.g. USD, INR, GBP
+  status        String         @default("Active") // Active | Inactive
+  startDate     DateTime
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  salaryHistory SalaryRecord[]
+}
+
+model SalaryRecord {
+  id            String   @id @default(cuid())
+  employeeId    String
+  baseSalary    Float
+  bonus         Float    @default(0)
+  effectiveDate DateTime
+  reason        String?  // "Initial", "Annual Review", "Promotion", "Market Adjustment"
+  createdAt     DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([effectiveDate])
+}
