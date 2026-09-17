@@ -1,3 +1,5 @@
+// Domain types
+
 export interface Employee {
   id: string;
   employeeId: string;
@@ -9,11 +11,10 @@ export interface Employee {
   position: string;
   country: string;
   currency: string;
-  status: "Active" | "Inactive";
-  startDate: string;
-  createdAt: string;
-  updatedAt: string;
-  salaryHistory?: SalaryRecord[];
+  status: string;
+  startDate: string | Date;
+  createdAt: string | Date;
+  updatedAt: string | Date;
 }
 
 export interface SalaryRecord {
@@ -21,16 +22,18 @@ export interface SalaryRecord {
   employeeId: string;
   baseSalary: number;
   bonus: number;
-  effectiveDate: string;
+  effectiveDate: string | Date;
   reason?: string | null;
-  createdAt: string;
+  createdAt: string | Date;
 }
 
 export interface EmployeeWithLatestSalary extends Employee {
-  currentBaseSalary?: number;
-  currentBonus?: number;
-  currentTotal?: number;
+  currentBaseSalary: number | null;
+  currentBonus: number | null;
+  currentTotal: number | null;
 }
+
+// API responses
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -40,13 +43,7 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
-export interface EmployeeFilters {
-  search?: string;
-  department?: string;
-  country?: string;
-  status?: string;
-  gender?: string;
-}
+// Analytics types
 
 export interface AnalyticsSummary {
   totalEmployees: number;

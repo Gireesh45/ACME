@@ -50,11 +50,10 @@ export function parsePaginationParams(searchParams: URLSearchParams): {
   pageSize: number;
   skip: number;
 } {
-  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
-  const pageSize = Math.min(
-    100,
-    Math.max(1, parseInt(searchParams.get("pageSize") ?? "25", 10))
-  );
+  const rawPage = parseInt(searchParams.get("page") ?? "1", 10);
+  const rawPageSize = parseInt(searchParams.get("pageSize") ?? "25", 10);
+  const page = Math.max(1, isNaN(rawPage) ? 1 : rawPage);
+  const pageSize = Math.min(100, Math.max(1, isNaN(rawPageSize) ? 25 : rawPageSize));
   return { page, pageSize, skip: (page - 1) * pageSize };
 }
 
