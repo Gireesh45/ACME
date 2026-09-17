@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { formatDate } from "@/lib/utils";
 
+const BATCH_SIZE = 500; // Stay well below SQLite's parameter limit
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
@@ -9,22 +11,13 @@ export async function GET(req: NextRequest) {
     const country = searchParams.get("country") ?? "";
     const status = searchParams.get("status") ?? "";
 
-    const employees = await prisma.employee.findMany({
-      where: {
-        ...(department && { department }),
-        ...(country && { country }),
-        ...(status && { status }),
-      },
-      include: {
-        salaryHistory: {
-          orderBy: { effectiveDate: "desc" },
-          take: 1,
-        },
-      },
-      orderBy: { employeeId: "asc" },
-    });
+    const where = {
+      ...(department && { department }),
+      ...(country && { country }),
+      ...(status && { status }),
+    };
 
-    // Build CSV
+    // CSV headers
     const headers = [
       "Employee ID",
       "First Name",
@@ -42,27 +35,59 @@ export async function GET(req: NextRequest) {
       "Start Date",
     ];
 
-    const rows = employees.map((emp) => {
-      const latest = emp.salaryHistory[0];
-      return [
-        emp.employeeId,
-        emp.firstName,
-        emp.lastName,
-        emp.email,
-        emp.gender,
-        emp.department,
-        emp.position,
-        emp.country,
-        emp.currency,
-        latest?.baseSalary ?? "",
-        latest?.bonus ?? "",
-        latest ? latest.baseSalary + latest.bonus : "",
-        emp.status,
-        formatDate(emp.startDate),
-      ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
-    });
+    const csvLines: string[] = [headers.join(",")];
 
-    const csv = [headers.join(","), ...rows].join("\n");
+    // Fetch in batches using cursor pagination to avoid P2029
+    let cursor: string | undefined = undefined;
+    let hasMore = true;
+
+    while (hasMore) {
+      const batch = await prisma.employee.findMany({
+        where,
+        take: BATCH_SIZE,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+        orderBy: { id: "asc" },
+        include: {
+          salaryHistory: {
+            orderBy: { effectiveDate: "desc" },
+            take: 1,
+          },
+        },
+      });
+
+      if (batch.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      for (const emp of batch) {
+        const latest = emp.salaryHistory[0];
+        const row = [
+          emp.employeeId,
+          emp.firstName,
+          emp.lastName,
+          emp.email,
+          emp.gender,
+          emp.department,
+          emp.position,
+          emp.country,
+          emp.currency,
+          latest?.baseSalary ?? "",
+          latest?.bonus ?? "",
+          latest ? latest.baseSalary + latest.bonus : "",
+          emp.status,
+          formatDate(emp.startDate),
+        ]
+          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .join(",");
+        csvLines.push(row);
+      }
+
+      cursor = batch[batch.length - 1].id;
+      hasMore = batch.length === BATCH_SIZE;
+    }
+
+    const csv = csvLines.join("\n");
 
     return new NextResponse(csv, {
       status: 200,
